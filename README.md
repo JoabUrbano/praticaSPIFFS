@@ -4,6 +4,8 @@ Pratica 04 da diciplina de plataforma de hardware utilizando SPIFFS com o Esp32.
 Bibliotecas utilizadas:
 - FS.h
 - SPIFFS.h
+- NTPClient.h
+- WiFi.h
 
 Componentes utilizados:
 - Esp32
