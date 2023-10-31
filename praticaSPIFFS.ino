@@ -25,7 +25,7 @@ int num = 0;
 
 
 
-void writeFile(String state, String path, String time);
+void writeFile(String state, String path, String hora);
 String readFile(String path);
 void formatFile();
 void openFS(void);
@@ -50,11 +50,8 @@ void setup() {
 
   openFS();
 
-  /*num = random(5000);//gerando numero aleatorio para salvar no arquivo
 
-  str = String(num);//convertendo o int para String
-
-  writeFile(str , "/logsAula.txt");
+  /*writeFile(str , "/logsAula.txt");
 
   Serial.println("ler arquivo");
 
@@ -114,7 +111,7 @@ void loop() {
 
 
 
-void writeFile(String state, String path) { //escreve conteúdo em um arquivo
+void writeFile(String state, String path, String hora) { //escreve conteúdo em um arquivo
 
   File rFile = SPIFFS.open(path, "w");//a para anexar
 
@@ -127,7 +124,9 @@ void writeFile(String state, String path) { //escreve conteúdo em um arquivo
 
     Serial.println(rFile.size());
 
-    rFile.println(state);
+    rFile.print(state);
+    rFile.print("-");
+    rFile.println(hora);
 
     Serial.print("Gravou: ");
 
@@ -145,13 +144,10 @@ String readFile(String path) {
 
   File rFile = SPIFFS.open(path, "r");//r+ leitura e escrita
 
-  if(rFile == NULL){
+  if(!rFile){
+    Serial.println("Erro ao abrir arquivo!");
     s = "";
     return s;
-  }
-
-  if (!rFile) {
-    Serial.println("Erro ao abrir arquivo!");
   }
 
   else {
