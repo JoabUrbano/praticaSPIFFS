@@ -1,18 +1,16 @@
 #include <FS.h>
 #include "SPIFFS.h"
-#include <NTPClient.h> /* https://github.com/arduino-libraries/NTPClient */
+#include <NTPClient.h> // https://github.com/arduino-libraries/NTPClient
 #include <WiFi.h>
 
 #define wifi_ssid "NPITI-IoT"
 #define wifi_password "NPITI-IoT"
 
 WiFiUDP udp;
-
-NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); /* Cria um objeto "NTP" com as configurações.utilizada no Brasil */
-
+NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); // Cria um objeto "NTP" com as configurações.utilizada no Brasil
 String hora;
 
-int nowTime, oldTime = num = 0;
+int nowTime, oldTime = 0, num = 0;
 
 int buttonPin = 21;
 int ledPin = 22;
@@ -20,12 +18,10 @@ int LED_BUILTIN = 2;
 
 String ledState, str, s;
 
+/* Declaração de funções */
 void writeFile(String state, String path, String hora);
-
 String readFile(String path);
-
 void formatFile();
-
 void openFS(void);
 
 void setup()
@@ -49,17 +45,14 @@ void setup()
   digitalWrite(LED_BUILTIN, HIGH); 
 
   ntp.begin(); // Inicia o protocolo
-
   ntp.forceUpdate(); // Atualização
 
   delay(200);
 
   // formatFile(); // Apenas a primeira vez que gravar o código
 
-  Serial.println("abrir arquivo");
-
+  Serial.println("Abrir arquivo");
   openFS();
-
   ledState = readFile("/ledLogs.txt");
 
   if (ledState == "") ledState = "0";
@@ -74,8 +67,6 @@ void loop()
 
   int buttonState = digitalRead(buttonPin);
 
-  digitalWrite(ledPin, ledState.toInt());
-
   if (buttonState == LOW)
   {
 
@@ -86,6 +77,8 @@ void loop()
       ledState = "1";
 
     delay(220);
+
+    digitalWrite(ledPin, ledState.toInt());
 
     hora = ntp.getFormattedTime();
 
