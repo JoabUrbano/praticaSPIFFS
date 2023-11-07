@@ -1,46 +1,56 @@
 #include <FS.h>
 #include "SPIFFS.h"
 #include <NTPClient.h> /* https://github.com/arduino-libraries/NTPClient */
-#include <WiFi.h> 
+#include <WiFi.h>
 
-
-#define wifi_ssid "imd0902"
-#define wifi_password "imd0902iot"
+#define wifi_ssid "NPITI-IoT"
+#define wifi_password "NPITI-IoT"
 
 WiFiUDP udp;
-NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000);/* Cria um objeto "NTP" com as configurações.utilizada no Brasil */
+
+NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); /* Cria um objeto "NTP" com as configurações.utilizada no Brasil */
+
 String hora;
 
-int nowTime, oldTime = 0;
+int nowTime, oldTime = num = 0;
 
 int buttonPin = 21;
 int ledPin = 22;
+int LED_BUILTIN = 2;
 
-
-String ledState;
-String str;
-String s;
-
-int num = 0;
-
-
+String ledState, str, s;
 
 void writeFile(String state, String path, String hora);
+
 String readFile(String path);
+
 void formatFile();
+
 void openFS(void);
 
-
-
-void setup() {
+void setup()
+{
 
   Serial.begin(115200);
+
   Serial.println("inicio");
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(buttonPin, INPUT);
+  pinMode(ledPin, OUTPUT);
 
   WiFi.begin(wifi_ssid, wifi_password);
-  delay(2000);               /* Espera a conexão. */
-  ntp.begin();               /* Inicia o protocolo */
-  ntp.forceUpdate();    /* Atualização */
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Conectando ao WiFi...");
+  }
+
+  Serial.println("Conectado ao WiFi");
+  digitalWrite(LED_BUILTIN, HIGH); 
+
+  ntp.begin(); // Inicia o protocolo
+
+  ntp.forceUpdate(); // Atualização
 
   delay(200);
 
@@ -50,114 +60,98 @@ void setup() {
 
   openFS();
 
-
-  /*writeFile(str , "/logsAula.txt");
-
-  Serial.println("ler arquivo");
-
-  String test = readFile("/logsAula.txt");*/
-
-  pinMode(buttonPin, INPUT);
-
-  pinMode(ledPin, OUTPUT);
-
-
   ledState = readFile("/ledLogs.txt");
 
-  if (ledState == ""){
-    ledState = "0";
-  }
+  if (ledState == "") ledState = "0";
 
   digitalWrite(ledPin, ledState.toInt());
-
 }
 
+void loop()
+{
 
-
-void loop() {
-    nowTime = ntp.getEpochTime(); // Obtém o tempo em segundos desde 1 de janeiro de 1970
+  nowTime = ntp.getEpochTime(); // Obtém o tempo em segundos desde 1 de janeiro de 1970
 
   int buttonState = digitalRead(buttonPin);
 
-  if (buttonState == LOW){
+  digitalWrite(ledPin, ledState.toInt());
 
-    if(ledState == "1"){
+  if (buttonState == LOW)
+  {
 
+    if (ledState == "1")
       ledState = "0";
 
-    } else {
-
+    else
       ledState = "1";
 
-    }
-
-    digitalWrite(ledPin, ledState.toInt());
+    delay(220);
 
     hora = ntp.getFormattedTime();
-    Serial.println("Hora da gravação: ");
-    Serial.println(hora);     /* Escreve a hora no monitor serial. */
-    writeFile(ledState, "/ledLogs.txt", hora);
 
+    Serial.println("Hora da gravação: ");
+
+    Serial.println(hora); // Escreve a hora no monitor serial.
+
+    writeFile(ledState, "/ledLogs.txt", hora);
   }
 
-  delay(1500);
+  if (nowTime - oldTime >= 20)
+  { // Ler o arquivo a cada 20 segundos
 
-  if(nowTime - oldTime >= 1000) {
     Serial.println(readFile("/ledLogs.txt"));
+
     oldTime = nowTime;
   }
-
 }
 
+void writeFile(String state, String path, String hora)
+{ // escreve conteúdo em um arquivo
 
+  File rFile = SPIFFS.open(path, "w"); // a para anexar
 
-void writeFile(String state, String path, String hora) { //escreve conteúdo em um arquivo
-
-  File rFile = SPIFFS.open(path, "w");//a para anexar
-
-  if (!rFile) {
+  if (!rFile)
     Serial.println("Erro ao abrir arquivo!");
-  }
 
-  else {
-    Serial.print("tamanho");
-
-    Serial.println(rFile.size());
+  else
+  {
 
     rFile.print(state);
     rFile.print("-");
     rFile.println(hora);
-
     Serial.print("Gravou: ");
 
     Serial.println(state);
   }
 
   rFile.close();
-
 }
 
-
-
-String readFile(String path) {
+String readFile(String path)
+{
   Serial.println("Read file");
 
-  File rFile = SPIFFS.open(path, "r");//r+ leitura e escrita
+  File rFile = SPIFFS.open(path, "r"); // r+ leitura e escrita
 
-  if(!rFile){
+  if (!rFile)
+  {
+
     Serial.println("Erro ao abrir arquivo!");
     s = "";
+
     return s;
   }
 
-  else {
-    Serial.print("----------Lendo arquivo ");
+  else
+  {
+    Serial.print("---------- Lendo arquivo ");
 
     Serial.print(path);
 
     Serial.println("  ---------");
 
-    while (rFile.position() < rFile.size()) {
+    while (rFile.position() < rFile.size())
+    {
 
       s = rFile.readStringUntil('\n');
 
@@ -172,9 +166,9 @@ String readFile(String path) {
   }
 }
 
+void formatFile()
+{
 
-
-void formatFile() {
   Serial.println("Formantando SPIFFS");
 
   SPIFFS.format();
@@ -182,14 +176,12 @@ void formatFile() {
   Serial.println("Formatou SPIFFS");
 }
 
+void openFS(void)
+{
 
-
-void openFS(void) {
-  if (!SPIFFS.begin()) {
+  if (!SPIFFS.begin())
     Serial.println("\nErro ao abrir o sistema de arquivos");
-  }
 
-  else {
+  else
     Serial.println("\nSistema de arquivos aberto com sucesso!");
-  }
 }
