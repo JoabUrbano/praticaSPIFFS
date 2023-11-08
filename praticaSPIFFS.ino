@@ -11,6 +11,7 @@ NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); // Cria um objeto "NTP" co
 String hora;
 
 int nowTime, oldTime = 0, num = 0;
+int maxLines = 100; // Número máximo de linhas a serem mantidas
 
 int buttonPin = 21;
 int ledPin = 22;
@@ -36,15 +37,16 @@ void setup()
 
   WiFi.begin(wifi_ssid, wifi_password);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(1000);
     Serial.println("Conectando ao WiFi...");
   }
 
   Serial.println("Conectado ao WiFi");
-  digitalWrite(LED_BUILTIN, HIGH); 
+  digitalWrite(LED_BUILTIN, HIGH);
 
-  ntp.begin(); // Inicia o protocolo
+  ntp.begin();       // Inicia o protocolo
   ntp.forceUpdate(); // Atualização
 
   delay(200);
@@ -55,7 +57,8 @@ void setup()
   openFS();
   ledState = readFile("/ledLogs.txt");
 
-  if (ledState == "") ledState = "0";
+  if (ledState == "")
+    ledState = "0";
 
   digitalWrite(ledPin, ledState.toInt());
 }
@@ -101,23 +104,43 @@ void loop()
 void writeFile(String state, String path, String hora)
 { // escreve conteúdo em um arquivo
 
-  File rFile = SPIFFS.open(path, "w"); // a para anexar
+  File rFile = SPIFFS.open(path, "a"); // a para anexar
 
   if (!rFile)
-    Serial.println("Erro ao abrir arquivo!");
-
-  else
   {
+    Serial.println("Erro ao abrir arquivo!");
+    return;
+  }
 
-    rFile.print(state);
-    rFile.print("-");
-    rFile.println(hora);
-    Serial.print("Gravou: ");
+  rFile.print("-");
+  rFile.println(hora);
+  Serial.print("Gravou: ");
+  Serial.println(state);
 
-    Serial.println(state);
+  // Lê as linhas atuais no arquivo
+  int lineCount = 0;
+  String lines[maxLines];
+  while (rFile.available() && lineCount < maxLines)
+  {
+    lines[lineCount] = rFile.readStringUntil('\n');
+    lineCount++;
   }
 
   rFile.close();
+
+  // Abre o arquivo novamente para reescrever as linhas
+  rFile = SPIFFS.open(path, "w");
+  if (!rFile)
+  {
+    Serial.println("Erro ao abrir o arquivo para reescrita.");
+    return;
+  }
+
+  // Escreve de volta as linhas lidas, excluindo a primeira se necessário
+  int startIndex = (lineCount < maxLines) ? 0 : 1;
+
+  for (int i = startIndex; i < lineCount; i++)
+    rFile.println(lines[i]);
 }
 
 String readFile(String path)
@@ -128,7 +151,6 @@ String readFile(String path)
 
   if (!rFile)
   {
-
     Serial.println("Erro ao abrir arquivo!");
     s = "";
 
@@ -145,11 +167,8 @@ String readFile(String path)
 
     while (rFile.position() < rFile.size())
     {
-
       s = rFile.readStringUntil('\n');
-
       s.trim();
-
       Serial.println(s);
     }
 
@@ -158,6 +177,30 @@ String readFile(String path)
     return s;
   }
 }
+/*String readFile(String path) { // Para imprimir todas as linhas
+  String result = "";  // Inicializa uma string vazia para armazenar o conteúdo do arquivo
+
+  File rFile = SPIFFS.open(path, "r"); // Abre o arquivo no modo de leitura
+
+  if (!rFile) {
+    Serial.println("Erro ao abrir arquivo!");
+    return "";
+  } else {
+    Serial.print("---------- Lendo arquivo ");
+    Serial.print(path);
+    Serial.println("  ---------");
+
+    while (rFile.available()) {
+      String line = rFile.readStringUntil('\n'); // Lê uma linha do arquivo
+      line.trim(); // Remove espaços em branco no início e no final da linha
+      result += line + '\n'; // Adiciona a linha à string de resultado
+    }
+
+    rFile.close(); // Fecha o arquivo
+
+    return result; // Retorna a string com todo o conteúdo do arquivo
+  }
+}*/
 
 void formatFile()
 {
