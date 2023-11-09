@@ -2,6 +2,7 @@
 #include "SPIFFS.h"
 #include <NTPClient.h> // https://github.com/arduino-libraries/NTPClient
 #include <WiFi.h>
+#include <vector>
 
 #define wifi_ssid "NPITI-IoT"
 #define wifi_password "NPITI-IoT"
@@ -11,7 +12,7 @@ NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); // Cria um objeto "NTP" co
 String hora;
 
 int nowTime, oldTime = 0, num = 0;
-int maxLines = 100; // Número máximo de linhas a serem mantidas
+int maxLines = 10; // Número máximo de linhas a serem mantidas
 
 int buttonPin = 21;
 int ledPin = 22;
@@ -21,8 +22,11 @@ String ledState, str, s;
 
 /* Declaração de funções */
 void writeFile(String state, String path, String hora);
+
 String readFile(String path);
+
 void formatFile();
+
 void openFS(void);
 
 void setup()
@@ -95,16 +99,15 @@ void loop()
   if (nowTime - oldTime >= 20)
   { // Ler o arquivo a cada 20 segundos
 
-    Serial.println(readFile("/ledLogs.txt"));
+    readFile("/ledLogs.txt");
 
     oldTime = nowTime;
   }
 }
 
 void writeFile(String state, String path, String hora)
-{ // escreve conteúdo em um arquivo
-
-  File rFile = SPIFFS.open(path, "a"); // a para anexar
+{
+  File rFile = SPIFFS.open(path, "r+"); // 'r+' para leitura e escrita
 
   if (!rFile)
   {
@@ -112,36 +115,34 @@ void writeFile(String state, String path, String hora)
     return;
   }
 
-  rFile.print("-");
-  rFile.println(hora);
-  Serial.print("Gravou: ");
-  Serial.println(state);
+  rFile.seek(0); // Mover o cursor para o início do arquivo
 
-  // Lê as linhas atuais no arquivo
   int lineCount = 0;
   String lines[maxLines];
-  while (rFile.available() && lineCount < maxLines)
+
+  // Ler linhas do arquivo
+  while (rFile.position() < rFile.size())
   {
     lines[lineCount] = rFile.readStringUntil('\n');
     lineCount++;
   }
 
-  rFile.close();
+  rFile.seek(0); // Mover o cursor para o início do arquivo
 
-  // Abre o arquivo novamente para reescrever as linhas
-  rFile = SPIFFS.open(path, "w");
-  if (!rFile)
+  if (lineCount / 2 >= maxLines)
   {
-    Serial.println("Erro ao abrir o arquivo para reescrita.");
-    return;
+    // Se atingir o máximo de elementos, sobrescrever a partir da segunda entrada
+    rFile.seek(lines[2].length() + lines[3].length() + 4); // 4 é a quantidade de caracteres adicionados por println
   }
 
-  // Escreve de volta as linhas lidas, excluindo a primeira se necessário
-  int startIndex = (lineCount < maxLines) ? 0 : 1;
+  // Escrever no arquivo
+  rFile.println(hora);
+  rFile.println(state);
+  Serial.println("Gravou!");
 
-  for (int i = startIndex; i < lineCount; i++)
-    rFile.println(lines[i]);
+  rFile.close();
 }
+
 
 String readFile(String path)
 {
@@ -167,9 +168,9 @@ String readFile(String path)
 
     while (rFile.position() < rFile.size())
     {
-      s = rFile.readStringUntil('\n');
-      s.trim();
-      Serial.println(s);
+      String line = rFile.readStringUntil('\n'); // Lê uma linha do arquivo
+      Serial.println(line);
+      s = line;
     }
 
     rFile.close();
