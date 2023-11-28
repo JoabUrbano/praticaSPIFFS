@@ -2,7 +2,9 @@
 #include "SPIFFS.h"
 #include <NTPClient.h> // https://github.com/arduino-libraries/NTPClient
 #include <WiFi.h>
-#include <vector>
+#include <queue>
+
+std::queue<String> filaDeStrings;
 
 #define wifi_ssid "NPITI-IoT"
 #define wifi_password "NPITI-IoT"
@@ -22,11 +24,8 @@ String ledState, str, s;
 
 /* Declaração de funções */
 void writeFile(String state, String path, String hora);
-
 String readFile(String path);
-
 void formatFile();
-
 void openFS(void);
 
 void setup()
@@ -59,12 +58,15 @@ void setup()
 
   Serial.println("Abrir arquivo");
   openFS();
+
   ledState = readFile("/ledLogs.txt");
+  int pos = ledState.indexOf(',');
+  String ledS = ledState.substring(0, pos);
 
-  if (ledState == "")
-    ledState = "0";
+  if (ledS == "")
+    ledS = "0";
 
-  digitalWrite(ledPin, ledState.toInt());
+  digitalWrite(ledPin, ledS.toInt());
 }
 
 void loop()
@@ -89,10 +91,6 @@ void loop()
 
     hora = ntp.getFormattedTime();
 
-    Serial.println("Hora da gravação: ");
-
-    Serial.println(hora); // Escreve a hora no monitor serial.
-
     writeFile(ledState, "/ledLogs.txt", hora);
   }
 
@@ -107,42 +105,33 @@ void loop()
 
 void writeFile(String state, String path, String hora)
 {
-  File rFile = SPIFFS.open(path, "r+"); // 'r+' para leitura e escrita
+  while (!filaDeStrings.empty()) // Esvazia a fila se ela tiver algo
+  {
+    filaDeStrings.pop();
+  }
 
-  if (!rFile)
+  readFile(path); // Chama o readFile para preencher a fila
+  File rFile = SPIFFS.open(path, "w");
+
+  if (!rFile) // Se não abriu retorna
   {
     Serial.println("Erro ao abrir arquivo!");
     return;
   }
+  filaDeStrings.push(state + "," + hora); // adiciona o ultimo estado a fila
 
-  rFile.seek(0); // Mover o cursor para o início do arquivo
-
-  int lineCount = 0;
-  String lines[maxLines];
-
-  // Ler linhas do arquivo
-  while (rFile.position() < rFile.size())
+  while (filaDeStrings.size() > maxLines) // enquanto houver maiss logs que o maximo, remova-os
   {
-    lines[lineCount] = rFile.readStringUntil('\n');
-    lineCount++;
+    filaDeStrings.pop();
   }
-
-  rFile.seek(0); // Mover o cursor para o início do arquivo
-
-  if (lineCount / 2 >= maxLines)
+  while (!filaDeStrings.empty()) // os logs dentro do limite de tamanho são recolocados no arquivo
   {
-    // Se atingir o máximo de elementos, sobrescrever a partir da segunda entrada
-    rFile.seek(lines[2].length() + lines[3].length() + 4); // 4 é a quantidade de caracteres adicionados por println
+    rFile.println(filaDeStrings.front());
+    filaDeStrings.pop();
   }
-
-  // Escrever no arquivo
-  rFile.println(hora);
-  rFile.println(state);
-  Serial.println("Gravou!");
 
   rFile.close();
 }
-
 
 String readFile(String path)
 {
@@ -160,50 +149,22 @@ String readFile(String path)
 
   else
   {
-    Serial.print("---------- Lendo arquivo ");
-
-    Serial.print(path);
-
-    Serial.println("  ---------");
+    Serial.print("---------- Lendo arquivo " + path + "  ---------");
 
     while (rFile.position() < rFile.size())
     {
       String line = rFile.readStringUntil('\n'); // Lê uma linha do arquivo
+      s = line; 
       Serial.println(line);
-      s = line;
+      filaDeStrings.push(line); // preenche a fila se for utilizar a escrita
     }
 
     rFile.close();
-
-    return s;
   }
+  return s;
 }
-/*String readFile(String path) { // Para imprimir todas as linhas
-  String result = "";  // Inicializa uma string vazia para armazenar o conteúdo do arquivo
 
-  File rFile = SPIFFS.open(path, "r"); // Abre o arquivo no modo de leitura
-
-  if (!rFile) {
-    Serial.println("Erro ao abrir arquivo!");
-    return "";
-  } else {
-    Serial.print("---------- Lendo arquivo ");
-    Serial.print(path);
-    Serial.println("  ---------");
-
-    while (rFile.available()) {
-      String line = rFile.readStringUntil('\n'); // Lê uma linha do arquivo
-      line.trim(); // Remove espaços em branco no início e no final da linha
-      result += line + '\n'; // Adiciona a linha à string de resultado
-    }
-
-    rFile.close(); // Fecha o arquivo
-
-    return result; // Retorna a string com todo o conteúdo do arquivo
-  }
-}*/
-
-void formatFile()
+void formatFile() // Formata o ESP32
 {
 
   Serial.println("Formantando SPIFFS");
@@ -213,7 +174,7 @@ void formatFile()
   Serial.println("Formatou SPIFFS");
 }
 
-void openFS(void)
+void openFS(void) // Inicia i Fs
 {
 
   if (!SPIFFS.begin())
